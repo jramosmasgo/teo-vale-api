@@ -9,6 +9,10 @@ export interface IPayment extends Document {
   paymentTime?: string;
   paymentCode?: string;
   registeredBy?: Types.ObjectId | IUser;
+  shipments?: Array<{
+    shipment: Types.ObjectId;
+    amountApplied: number;
+  }>;
   createdAt?: Date;
   updatedAt?: Date;
 }

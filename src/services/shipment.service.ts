@@ -79,7 +79,7 @@ export class ShipmentService {
             client: order.client as Types.ObjectId,
             status: 'DELIVERED',
             amount: order.amount,
-            isPaid: false,
+            paymentStatus: 'UNPAID',
             deliveryDate: today,
             notes: `Envío generado automáticamente para ${todayName}`
           };
@@ -159,8 +159,8 @@ export class ShipmentService {
     const skip = (page - 1) * limit;
     const query: any = {};
 
-    if (filters.isPaid !== undefined) {
-      query.isPaid = filters.isPaid === 'true' || filters.isPaid === true;
+    if (filters.paymentStatus) {
+      query.paymentStatus = filters.paymentStatus;
     }
 
     if (filters.status) {
@@ -168,11 +168,11 @@ export class ShipmentService {
     }
 
     if (filters.deliveryDate) {
-      const startOfDay = new Date(filters.deliveryDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      // Parse the date string (YYYY-MM-DD) to avoid timezone issues
+      const [year, month, day] = filters.deliveryDate.split('-').map(Number);
       
-      const endOfDay = new Date(filters.deliveryDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
       query.deliveryDate = {
         $gte: startOfDay,
@@ -223,11 +223,14 @@ export class ShipmentService {
     if (filters?.startDate || filters?.endDate) {
       query.executionDate = {};
       if (filters.startDate) {
-        query.executionDate.$gte = new Date(filters.startDate);
+        // Parse the date string (YYYY-MM-DD) to avoid timezone issues
+        const [year, month, day] = filters.startDate.split('-').map(Number);
+        query.executionDate.$gte = new Date(year, month - 1, day, 0, 0, 0, 0);
       }
       if (filters.endDate) {
-        const endDate = new Date(filters.endDate);
-        endDate.setHours(23, 59, 59, 999);
+        // Parse the date string (YYYY-MM-DD) to avoid timezone issues
+        const [year, month, day] = filters.endDate.split('-').map(Number);
+        const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
         query.executionDate.$lte = endDate;
       }
     }
@@ -263,5 +266,79 @@ export class ShipmentService {
         $lte: endOfDay
       }
     }).sort({ createdAt: -1 });
+  }
+
+  /**
+   * Obtiene los envíos de un cliente específico con filtros opcionales
+   * @param clientId - ID del cliente
+   * @param page - Número de página
+   * @param limit - Cantidad de resultados por página
+   * @param filters - Filtros opcionales (startDate, endDate, isPaid)
+   */
+  async getShipmentsByClient(
+    clientId: string,
+    page: number = 1,
+    limit: number = 15,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+      paymentStatus?: string;
+    }
+  ): Promise<{ shipments: IShipment[], total: number, totalDebt: number, pendingCount: number }> {
+    const skip = (page - 1) * limit;
+    const query: any = { client: clientId };
+
+    // Filtro por estado de pago
+    if (filters?.paymentStatus) {
+      query.paymentStatus = filters.paymentStatus;
+    }
+
+    // Filtro por rango de fechas
+    if (filters?.startDate || filters?.endDate) {
+      query.deliveryDate = {};
+      
+      if (filters.startDate) {
+        // Parse the date string (YYYY-MM-DD) to avoid timezone issues
+        const [year, month, day] = filters.startDate.split('-').map(Number);
+        query.deliveryDate.$gte = new Date(year, month - 1, day, 0, 0, 0, 0);
+      }
+      
+      if (filters.endDate) {
+        // Parse the date string (YYYY-MM-DD) to avoid timezone issues
+        const [year, month, day] = filters.endDate.split('-').map(Number);
+        query.deliveryDate.$lte = new Date(year, month - 1, day, 23, 59, 59, 999);
+      }
+    }
+
+    const shipments = await Shipment.find(query)
+      .populate('order')
+      .populate('client')
+      .skip(skip)
+      .limit(limit)
+      .sort({ deliveryDate: -1 });
+
+    const total = await Shipment.countDocuments(query);
+
+    // Calcular deuda total y conteo de pagos pendientes (sin filtros de fecha, solo por cliente)
+    const analytics = await Shipment.aggregate([
+      { $match: { client: new Types.ObjectId(clientId), paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
+      {
+        $group: {
+          _id: null,
+          totalDebt: { $sum: { $subtract: ["$amount", { $ifNull: ["$amountPaid", 0] }] } },
+          pendingCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const totalDebt = analytics.length > 0 ? analytics[0].totalDebt : 0;
+    const pendingCount = analytics.length > 0 ? analytics[0].pendingCount : 0;
+
+    return { 
+      shipments, 
+      total,
+      totalDebt,
+      pendingCount
+    };
   }
 }

@@ -1,8 +1,9 @@
-import app from './app';
+// IMPORTANTE: dotenv debe cargarse ANTES de cualquier otra importación
 import dotenv from 'dotenv';
-import connectDB from './config/db';
-
 dotenv.config();
+
+import app from './app';
+import connectDB from './config/db';
 
 // Connect to Database
 connectDB();

@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { ShipmentService } from '../services/shipment.service';
+import { NotificationService } from '../services/notification.service';
 
 const shipmentService = new ShipmentService();
+const notificationService = new NotificationService();
 
 export class ShipmentController {
   async createShipment(req: Request, res: Response, next: NextFunction) {
@@ -20,6 +22,18 @@ export class ShipmentController {
       
       if (!shipment) {
         return res.status(404).json({ message: 'Shipment not found' });
+      }
+
+      // Notificación: entrega cancelada o modificada
+      const userId = (req as any).user?.id;
+      if (userId) {
+        const isCancelled = req.body.status === 'CANCELLED';
+        notificationService.createNotification({
+          createdBy: userId,
+          type: isCancelled ? 'SHIPMENT_CANCELLED' : 'SHIPMENT_UPDATED',
+          title: isCancelled ? 'Entrega cancelada' : 'Entrega modificada',
+          content: `La entrega (${id}) fue ${isCancelled ? 'cancelada' : 'modificada'}.`,
+        }).catch(console.error);
       }
 
       res.json(shipment);
@@ -49,7 +63,7 @@ export class ShipmentController {
       const limit = parseInt(req.query.limit as string) || 15;
       
       const filters = {
-        isPaid: req.query.isPaid as string,
+        paymentStatus: req.query.paymentStatus as string,
         status: req.query.status as string,
         deliveryDate: req.query.deliveryDate as string,
         clientName: req.query.clientName as string
@@ -126,6 +140,42 @@ export class ShipmentController {
         hasGeneration: true,
         generation
       });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async getShipmentsByClient(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { clientId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 15;
+      
+      // Helper function to safely extract string from query params
+      const getStringParam = (param: any): string | undefined => {
+        if (typeof param === 'string') return param;
+        if (Array.isArray(param) && param.length > 0) return param[0];
+        return undefined;
+      };
+
+      const filters: {
+        startDate?: string;
+        endDate?: string;
+        isPaid?: string;
+      } = {
+        startDate: getStringParam(req.query.startDate),
+        endDate: getStringParam(req.query.endDate),
+        isPaid: getStringParam(req.query.isPaid)
+      };
+
+      const result = await shipmentService.getShipmentsByClient(
+        clientId as string,
+        page,
+        limit,
+        filters
+      );
+      
+      res.json(result);
     } catch (error: any) {
       next(error);
     }

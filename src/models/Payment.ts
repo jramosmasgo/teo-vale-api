@@ -29,7 +29,17 @@ const PaymentSchema = new Schema<IPayment>(
       type: Schema.Types.ObjectId, 
       ref: 'User',
       required: true 
-    }
+    },
+    shipments: [{
+      shipment: {
+        type: Schema.Types.ObjectId,
+        ref: 'Shipment'
+      },
+      amountApplied: {
+        type: Number,
+        required: true
+      }
+    }]
   },
   { timestamps: true }
 );

@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose';
+import { randomUUID } from 'crypto';
 import { IClient } from '../interfaces';
 
 const ClientSchema = new Schema<IClient>(
@@ -30,6 +31,11 @@ const ClientSchema = new Schema<IClient>(
     active: {
       type: Boolean,
       default: true
+    },
+    qrToken: {
+      type: String,
+      unique: true,
+      default: () => randomUUID()
     }
   },
   { timestamps: true }

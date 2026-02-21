@@ -21,9 +21,14 @@ const ShipmentSchema = new Schema<IShipment>(
     amount: {
       type: Number
     },
-    isPaid: {
-      type: Boolean,
-      default: false
+    amountPaid: {
+      type: Number,
+      default: 0
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['UNPAID', 'COMPLETED', 'INCOMPLETE'],
+      default: 'UNPAID'
     },
     deliveryDate: { 
       type: Date,

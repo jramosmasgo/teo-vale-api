@@ -7,7 +7,8 @@ export interface IShipment extends Document {
   client?: Types.ObjectId | IClient;
   status?: string;
   amount?: number;
-  isPaid?: boolean;
+  amountPaid?: number;
+  paymentStatus?: 'UNPAID' | 'COMPLETED' | 'INCOMPLETE';
   deliveryDate?: Date;
   notes?: string;
   createdAt?: Date;

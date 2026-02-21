@@ -29,6 +29,31 @@ export class UserController {
   }
 
 
+  async deleteUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const user = await userService.deleteUser(id as string);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json({ message: 'User deleted successfully' });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async getUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { page, limit } = req.query;
+      const users = await userService.getAllUsers(Number(page) || 1, Number(limit) || 50);
+      res.json(users);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   async login(req: Request, res: Response, next: NextFunction) {
     try {
       const responseUser = await userService.loginUser(req.body);
@@ -40,6 +65,41 @@ export class UserController {
       }
     } catch (e) {
       next(e);
+    }
+  }
+
+  async uploadProfileImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: 'No se proporcionó ninguna imagen' });
+      }
+
+      const user = await userService.uploadProfileImage(id as string, req.file.buffer);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      res.json({ message: 'Imagen de perfil actualizada exitosamente', user });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async deleteProfileImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const user = await userService.deleteProfileImage(id as string);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      res.json({ message: 'Imagen de perfil eliminada exitosamente', user });
+    } catch (error: any) {
+      next(error);
     }
   }
 }

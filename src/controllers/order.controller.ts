@@ -1,12 +1,26 @@
 import { Request, Response, NextFunction } from 'express';
 import { OrderService } from '../services/order.service';
+import { NotificationService } from '../services/notification.service';
 
 const orderService = new OrderService();
+const notificationService = new NotificationService();
 
 export class OrderController {
   async createOrder(req: Request, res: Response, next: NextFunction) {
     try {
       const order = await orderService.createOrder(req.body);
+      
+      // Notificación: nuevo pedido creado
+      const userId = (req as any).user?.id;
+      if (userId) {
+        notificationService.createNotification({
+          createdBy: userId,
+          type: 'ORDER_CREATED',
+          title: 'Nuevo pedido creado',
+          content: `Se creó un nuevo pedido (${(order as any).orderCode || order._id}).`,
+        }).catch(console.error);
+      }
+
       res.status(201).json(order);
     } catch (error: any) {
       next(error);
@@ -20,6 +34,18 @@ export class OrderController {
       
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
+      }
+
+      // Notificación: pedido modificado/cancelado
+      const userId = (req as any).user?.id;
+      if (userId) {
+        const isCancelled = req.body.status === false || req.body.status === 'CANCELLED';
+        notificationService.createNotification({
+          createdBy: userId,
+          type: isCancelled ? 'ORDER_CANCELLED' : 'ORDER_UPDATED',
+          title: isCancelled ? 'Pedido cancelado' : 'Pedido modificado',
+          content: `El pedido (${(order as any).orderCode || id}) fue ${isCancelled ? 'cancelado' : 'modificado'}.`,
+        }).catch(console.error);
       }
 
       res.json(order);
@@ -73,3 +99,4 @@ export class OrderController {
     }
   }
 }
+

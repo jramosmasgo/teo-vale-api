@@ -8,6 +8,7 @@ export interface IClient extends Document {
   reference?: string;
   phone?: string;
   active: boolean;
+  qrToken?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

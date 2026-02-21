@@ -7,8 +7,19 @@ export class PaymentController {
   async createPayment(req: Request, res: Response, next: NextFunction) {
     try {
       const payment = await paymentService.createPayment(req.body);
-      res.status(201).json(payment);
+      
+      // Populate shipments for detailed response
+      const populatedPayment = await paymentService.getPaymentById(payment._id.toString());
+      
+      res.status(201).json({
+        message: 'Pago registrado y distribuido exitosamente',
+        payment: populatedPayment
+      });
     } catch (error: any) {
+      if (error.message === 'No hay envíos pendientes para este cliente' || 
+          error.message === 'Cliente y monto válido son requeridos') {
+        return res.status(400).json({ message: error.message });
+      }
       next(error);
     }
   }
