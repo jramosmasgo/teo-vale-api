@@ -1,9 +1,9 @@
-import { Types } from 'mongoose';
+import mongoose from 'mongoose';
 import { Notification } from '../models/Notification';
 import { INotification, NotificationType } from '../interfaces/notification.interface';
 
 interface CreateNotificationPayload {
-  createdBy: string | Types.ObjectId;
+  createdBy: string;
   type: NotificationType;
   title: string;
   content: string;
@@ -15,7 +15,7 @@ export class NotificationService {
    */
   async createNotification(payload: CreateNotificationPayload): Promise<INotification> {
     const notification = new Notification({
-      createdBy: payload.createdBy,
+      createdBy: new mongoose.Types.ObjectId(payload.createdBy),
       type: payload.type,
       title: payload.title,
       content: payload.content,
@@ -49,7 +49,7 @@ export class NotificationService {
     let unread = 0;
     if (userId) {
       unread = await Notification.countDocuments({
-        seenBy: { $ne: new Types.ObjectId(userId) },
+        seenBy: { $ne: new mongoose.Types.ObjectId(userId) },
       });
     }
 
@@ -65,7 +65,7 @@ export class NotificationService {
   ): Promise<INotification | null> {
     return Notification.findByIdAndUpdate(
       notificationId,
-      { $addToSet: { seenBy: new Types.ObjectId(userId) } },
+      { $addToSet: { seenBy: new mongoose.Types.ObjectId(userId) } },
       { new: true }
     );
   }
@@ -75,8 +75,8 @@ export class NotificationService {
    */
   async markAllAsSeen(userId: string): Promise<void> {
     await Notification.updateMany(
-      { seenBy: { $ne: new Types.ObjectId(userId) } },
-      { $addToSet: { seenBy: new Types.ObjectId(userId) } }
+      { seenBy: { $ne: new mongoose.Types.ObjectId(userId) } },
+      { $addToSet: { seenBy: new mongoose.Types.ObjectId(userId) } }
     );
   }
 

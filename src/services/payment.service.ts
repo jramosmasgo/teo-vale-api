@@ -1,7 +1,7 @@
 import { Payment } from "../models/Payment";
 import { Shipment } from "../models/Shipment";
 import { IPayment } from "../interfaces";
-import { Types } from "mongoose";
+import mongoose from 'mongoose';
 
 export class PaymentService {
   /**
@@ -27,7 +27,7 @@ export class PaymentService {
     }
 
     let remainingAmount = amountPaid;
-    const shipmentsAffected: Array<{ shipment: Types.ObjectId; amountApplied: number }> = [];
+    const shipmentsAffected: Array<{ shipment: any; amountApplied: number }> = [];
 
     // Distribuir el pago entre los shipments
     for (const shipment of pendingShipments) {
@@ -59,7 +59,7 @@ export class PaymentService {
 
       // Registrar el shipment afectado
       shipmentsAffected.push({
-        shipment: shipment._id as Types.ObjectId,
+        shipment: shipment._id as any,
         amountApplied: amountToApply
       });
 

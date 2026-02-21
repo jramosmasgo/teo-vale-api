@@ -2,7 +2,7 @@ import { Shipment } from "../models/Shipment";
 import { Order } from "../models/Order";
 import { ShipmentGeneration } from "../models/ShipmentGeneration";
 import { IShipment } from "../interfaces";
-import { Types } from "mongoose";
+import mongoose from 'mongoose';
 
 export class ShipmentService {
   /**
@@ -76,7 +76,7 @@ export class ShipmentService {
           // Crear el nuevo shipment
           const shipmentData: Partial<IShipment> = {
             order: order._id,
-            client: order.client as Types.ObjectId,
+            client: order.client as mongoose.Types.ObjectId,
             status: 'DELIVERED',
             amount: order.amount,
             paymentStatus: 'UNPAID',
@@ -321,7 +321,7 @@ export class ShipmentService {
 
     // Calcular deuda total y conteo de pagos pendientes (sin filtros de fecha, solo por cliente)
     const analytics = await Shipment.aggregate([
-      { $match: { client: new Types.ObjectId(clientId), paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
+      { $match: { client: new mongoose.Types.ObjectId(clientId), paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
       {
         $group: {
           _id: null,

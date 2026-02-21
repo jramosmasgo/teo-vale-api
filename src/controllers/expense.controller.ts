@@ -9,7 +9,7 @@ export class ExpenseController {
    * POST /api/expenses
    * Registra un nuevo gasto. El usuario que lo registra se obtiene del token JWT.
    */
-  async create(req: Request, res: Response, next: NextFunction) {
+  async create(req: any, res: any, next: any) {
     try {
       const userId = (req as any).user?.id as string;
       if (!userId) {
@@ -43,7 +43,7 @@ export class ExpenseController {
    * GET /api/expenses
    * Lista gastos con paginación y filtros.
    */
-  async getAll(req: Request, res: Response, next: NextFunction) {
+  async getAll(req: any, res: any, next: any) {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 15;
@@ -66,7 +66,7 @@ export class ExpenseController {
    * GET /api/expenses/summary
    * Resumen de gastos totales agrupados por categoría.
    */
-  async getSummary(req: Request, res: Response, next: NextFunction) {
+  async getSummary(req: any, res: any, next: any) {
     try {
       const { startDate, endDate } = req.query;
       const summary = await expenseService.getSummaryByCategory(
@@ -83,7 +83,7 @@ export class ExpenseController {
    * GET /api/expenses/:id
    * Obtiene un gasto por ID.
    */
-  async getById(req: Request, res: Response, next: NextFunction) {
+  async getById(req: any, res: any, next: any) {
     try {
       const expense = await expenseService.getById(req.params.id as string);
       if (!expense) {
@@ -99,7 +99,7 @@ export class ExpenseController {
    * PUT /api/expenses/:id
    * Actualiza un gasto existente.
    */
-  async update(req: Request, res: Response, next: NextFunction) {
+  async update(req: any, res: any, next: any) {
     try {
       const expense = await expenseService.update(req.params.id as string, req.body);
       if (!expense) {
@@ -115,7 +115,7 @@ export class ExpenseController {
    * DELETE /api/expenses/:id
    * Elimina un gasto.
    */
-  async delete(req: Request, res: Response, next: NextFunction) {
+  async delete(req: any, res: any, next: any) {
     try {
       const expense = await expenseService.delete(req.params.id as string);
       if (!expense) {
