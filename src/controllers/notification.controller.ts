@@ -34,7 +34,7 @@ export class NotificationController {
         return res.status(401).json({ message: 'Usuario no autenticado' });
       }
 
-      const notification = await notificationService.markAsSeen(id, userId);
+      const notification = await notificationService.markAsSeen(id as string, userId);
 
       if (!notification) {
         return res.status(404).json({ message: 'Notificación no encontrada' });

@@ -85,7 +85,7 @@ export class ExpenseController {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const expense = await expenseService.getById(req.params.id);
+      const expense = await expenseService.getById(req.params.id as string);
       if (!expense) {
         return res.status(404).json({ message: 'Gasto no encontrado' });
       }
@@ -101,7 +101,7 @@ export class ExpenseController {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const expense = await expenseService.update(req.params.id, req.body);
+      const expense = await expenseService.update(req.params.id as string, req.body);
       if (!expense) {
         return res.status(404).json({ message: 'Gasto no encontrado' });
       }
@@ -117,7 +117,7 @@ export class ExpenseController {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const expense = await expenseService.delete(req.params.id);
+      const expense = await expenseService.delete(req.params.id as string);
       if (!expense) {
         return res.status(404).json({ message: 'Gasto no encontrado' });
       }
