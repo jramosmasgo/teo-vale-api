@@ -23,7 +23,7 @@ export class ExpenseService {
   }): Promise<IExpense> {
     const expense = new Expense({
       ...data,
-      registeredBy: new mongoose.Types.ObjectId(data.registeredBy),
+      registeredBy: data.registeredBy as any,
       expenseDate: data.expenseDate || new Date(),
     });
     return expense.save();
@@ -57,7 +57,7 @@ export class ExpenseService {
     }
 
     if (filters.registeredBy) {
-      query.registeredBy = new mongoose.Types.ObjectId(filters.registeredBy);
+      query.registeredBy = filters.registeredBy;
     }
 
     const [expenses, total, totalAmountResult] = await Promise.all([

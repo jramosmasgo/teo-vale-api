@@ -321,7 +321,7 @@ export class ShipmentService {
 
     // Calcular deuda total y conteo de pagos pendientes (sin filtros de fecha, solo por cliente)
     const analytics = await Shipment.aggregate([
-      { $match: { client: new mongoose.Types.ObjectId(clientId), paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
+      { $match: { client: clientId as any, paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
       {
         $group: {
           _id: null,

@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import { Notification } from '../models/Notification';
 import { INotification, NotificationType } from '../interfaces/notification.interface';
 
@@ -15,7 +14,7 @@ export class NotificationService {
    */
   async createNotification(payload: CreateNotificationPayload): Promise<INotification> {
     const notification = new Notification({
-      createdBy: new mongoose.Types.ObjectId(payload.createdBy),
+      createdBy: payload.createdBy,
       type: payload.type,
       title: payload.title,
       content: payload.content,
@@ -49,7 +48,7 @@ export class NotificationService {
     let unread = 0;
     if (userId) {
       unread = await Notification.countDocuments({
-        seenBy: { $ne: new mongoose.Types.ObjectId(userId) },
+        seenBy: { $ne: userId as any },
       });
     }
 
@@ -65,7 +64,7 @@ export class NotificationService {
   ): Promise<INotification | null> {
     return Notification.findByIdAndUpdate(
       notificationId,
-      { $addToSet: { seenBy: new mongoose.Types.ObjectId(userId) } },
+      { $addToSet: { seenBy: userId as any } },
       { new: true }
     );
   }
@@ -75,14 +74,13 @@ export class NotificationService {
    */
   async markAllAsSeen(userId: string): Promise<void> {
     await Notification.updateMany(
-      { seenBy: { $ne: new mongoose.Types.ObjectId(userId) } },
-      { $addToSet: { seenBy: new mongoose.Types.ObjectId(userId) } }
+      { seenBy: { $ne: userId as any } },
+      { $addToSet: { seenBy: userId as any } }
     );
   }
 
   /**
    * Elimina las notificaciones que tienen más de 15 días.
-   * Pensado para ejecutarse mediante un cron job periódico.
    */
   async deleteOldNotifications(): Promise<{ deleted: number }> {
     const cutoffDate = new Date();
