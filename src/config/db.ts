@@ -17,14 +17,13 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(mongoURI, {
-      // Opciones recomendadas para MongoDB Atlas + entornos serverless
-      serverSelectionTimeoutMS: 10000,   // 10 segundos para seleccionar servidor
-      socketTimeoutMS: 45000,            // 45 segundos timeout de socket
-      connectTimeoutMS: 10000,           // 10 segundos timeout de conexión
-      maxPoolSize: 10,                   // Máximo de conexiones simultáneas
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
       minPoolSize: 1,
       retryWrites: true,
-    });
+    } as any);
 
     isConnected = true;
     console.log(`MongoDB conectado: ${conn.connection.host}`);

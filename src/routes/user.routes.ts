@@ -11,7 +11,7 @@ router.post('/', checkJwt, userController.createUser);
 router.put('/:id', checkJwt, userController.updateUser);
 router.delete('/:id', checkJwt, userController.deleteUser);
 router.post('/login', userController.login);
-router.post('/:id/upload-image', checkJwt, upload.single('image'), userController.uploadProfileImage);
+router.post('/:id/upload-image', checkJwt, upload.single('image') as any, userController.uploadProfileImage);
 router.delete('/:id/delete-image', checkJwt, userController.deleteProfileImage);
 
 export default router;

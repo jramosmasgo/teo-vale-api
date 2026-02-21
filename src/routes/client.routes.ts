@@ -10,7 +10,7 @@ router.post('/', checkJwt, clientController.createClient);
 router.get('/', checkJwt, clientController.getClients);
 router.get('/:id', checkJwt, clientController.getClient);
 router.put('/:id', checkJwt, clientController.updateClient);
-router.post('/:id/upload-image', checkJwt, upload.single('image'), clientController.uploadProfileImage);
+router.post('/:id/upload-image', checkJwt, upload.single('image') as any, clientController.uploadProfileImage);
 router.delete('/:id/delete-image', checkJwt, clientController.deleteProfileImage);
 
 export default router;
