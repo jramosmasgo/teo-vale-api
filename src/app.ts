@@ -16,7 +16,7 @@ app.use(helmet());
 app.use('/api', routes);
 
 // Health check
-app.get('/', (_req, res) => {
+app.get('/', (_req: any, res: any) => {
   res.json({ message: 'Welcome to Teo Vale Backend API' });
 });
 

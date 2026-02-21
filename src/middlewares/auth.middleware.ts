@@ -2,11 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import { verifyToken } from "../utils/jwt.handle";
 import { JwtPayload } from "jsonwebtoken";
 
-interface RequestExt extends Request {
-  user?: string | JwtPayload;
-}
+import { RequestWithUser } from "../interfaces/request.interface";
 
-const checkJwt = (req: RequestExt, res: Response, next: NextFunction) => {
+const checkJwt = (req: RequestWithUser, res: Response, next: NextFunction) => {
   try {
     const jwtByUser = req.headers.authorization || "";
     const jwt = jwtByUser.split(" ").pop();

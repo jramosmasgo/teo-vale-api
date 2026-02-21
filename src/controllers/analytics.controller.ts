@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { AnalyticsService } from '../services/analytics.service';
 
 const analyticsService = new AnalyticsService();

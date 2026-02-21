@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ErrorLog } from '../models/ErrorLog';
 
-// Extend Request to include potential user data from Auth middleware
-interface RequestWithUser extends Request {
-  user?: any;
-}
+import { RequestWithUser } from '../interfaces/request.interface';
 
 export const logErrorMiddleware = async (err: any, req: RequestWithUser, res: Response, next: NextFunction) => {
   console.error('Error caught by middleware:', err);
