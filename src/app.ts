@@ -7,10 +7,16 @@ import { logErrorMiddleware } from './middlewares/error.middleware';
 const app = express();
 
 // Middlewares
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://teo-vale-admin.vercel.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
-app.use(helmet());
 
 // Routes
 app.use('/api', routes);
