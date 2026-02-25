@@ -16,8 +16,8 @@ export class QrService {
       return null;
     }
 
-    // Obtener pedidos activos del cliente
-    const orders = await Order.find({ client: client._id, status: true }).lean();
+    // Obtener todos los pedidos del cliente (sin importar el estado)
+    const orders = await Order.find({ client: client._id }).lean();
 
     // Obtener pagos del cliente (más recientes primero)
     const payments = await Payment.find({ client: client._id })
@@ -25,14 +25,16 @@ export class QrService {
       .populate('registeredBy', 'fullName')
       .lean();
 
-    // Obtener envíos/despachos del cliente para calcular saldo pendiente
-    const shipments = await Shipment.find({ order: { $in: orders.map(o => o._id) } })
+    // Obtener todos los envíos/despachos del cliente directamente
+    const shipments = await Shipment.find({ client: client._id })
       .sort({ deliveryDate: -1 })
       .lean();
 
     // Calcular totales
     const totalPaid = payments.reduce((sum, p) => sum + (p.amountPaid ?? 0), 0);
+    // totalOrdered = suma de lo despachado (shipments), que es la deuda real del cliente
     const totalOrdered = shipments.reduce((sum, s) => sum + (s.amount ?? 0), 0);
+    // balance = lo despachado - lo pagado
     const balance = totalOrdered - totalPaid;
 
     return {
@@ -50,7 +52,8 @@ export class QrService {
         totalOrdered,
         balance,
         paymentsCount: payments.length,
-        activeOrdersCount: orders.length,
+        activeOrdersCount: orders.filter(o => o.status === true).length,
+        ordersCount: orders.length,
       },
       orders,
       payments,
