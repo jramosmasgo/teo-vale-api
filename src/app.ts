@@ -6,12 +6,15 @@ import { logErrorMiddleware } from './middlewares/error.middleware';
 
 const app = express();
 
-// Middlewares
-app.use(cors({
+// CORS — debe ir ANTES de cualquier otra ruta o middleware
+const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200 // Para navegadores legacy (IE11) que usan 204 como error
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Responder a todas las peticiones preflight OPTIONS
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
