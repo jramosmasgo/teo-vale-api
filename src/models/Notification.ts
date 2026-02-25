@@ -36,6 +36,10 @@ const NotificationSchema = new Schema<INotification>(
         ref: 'User',
       },
     ],
+    action: {
+      entityId: { type: String, default: null },
+      entityType: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

@@ -1,6 +1,7 @@
 import { Shipment } from "../models/Shipment";
 import { Order } from "../models/Order";
 import { ShipmentGeneration } from "../models/ShipmentGeneration";
+import { Client } from "../models/Client";
 import { IShipment } from "../interfaces";
 import mongoose from 'mongoose';
 
@@ -144,6 +145,68 @@ export class ShipmentService {
     return await shipment.save();
   }
 
+  /**
+   * Genera el shipment del día para una orden específica.
+   * Útil cuando se crea un pedido después de la generación masiva diaria.
+   */
+  async generateShipmentForOrder(orderId: string, executedBy?: string): Promise<{
+    shipment?: IShipment;
+    alreadyExists?: boolean;
+    message: string;
+  }> {
+    const today = new Date();
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const todayName = dayNames[today.getDay()];
+
+    // Buscar la orden con sus datos
+    const order = await Order.findById(orderId).populate('client');
+    if (!order) {
+      throw new Error('Pedido no encontrado');
+    }
+    if (!order.status) {
+      throw new Error('El pedido no está activo');
+    }
+
+    // Verificar si ya tiene un shipment hoy
+    const existingShipment = await Shipment.findOne({
+      order: order._id,
+      deliveryDate: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    if (existingShipment) {
+      return {
+        alreadyExists: true,
+        shipment: existingShipment,
+        message: 'Este pedido ya tiene una entrega registrada para hoy.'
+      };
+    }
+
+    // Crear el shipment
+    const shipmentData: Partial<IShipment> = {
+      order: order._id,
+      client: order.client as mongoose.Types.ObjectId,
+      status: 'DELIVERED',
+      amount: order.amount,
+      paymentStatus: 'UNPAID',
+      deliveryDate: today,
+      notes: `Entrega generada manualmente para ${todayName} por ${executedBy || 'admin'}`
+    };
+
+    const newShipment = new Shipment(shipmentData);
+    const saved = await newShipment.save();
+
+    return {
+      shipment: saved,
+      alreadyExists: false,
+      message: `Entrega generada correctamente para hoy (${todayName}).`
+    };
+  }
+
   async updateShipment(id: string, shipmentData: Partial<IShipment>): Promise<IShipment | null> {
     const shipment = await Shipment.findByIdAndUpdate(id, shipmentData, { new: true });
     return shipment;
@@ -180,32 +243,25 @@ export class ShipmentService {
       };
     }
 
-    // Creating the base query to handle potential client filtering
-    let findQuery = Shipment.find(query)
-      .populate('order')
-      .populate('client');
-
-    // If clientName is provided, we need to filter after population or use a tricky aggregation
-    // For simplicity with Mongoose, sorting/filtering by populated fields often needs aggregation,
-    // but here we will try a two-step approach or aggregation if needed.
-    // However, if we simply want to filter by client ID it is easier.
-    // If filtering by Client NAME, we have to look up clients first.
-    
+    // Filter by client name: two-step lookup (Client regex -> IDs -> Shipment $in)
     if (filters.clientName) {
-      // This is more complex because we need to find clients matching the name first
-      // Logic: Find clients with name regex -> Get IDs -> Filter shipments by those Client IDs
-      // Deferred for simplicity relying on client filtering in frontend or exact match if needed.
-      // Alternatively, we can use aggregation lookup.
-      // Let's implement a basic lookup for now.
+      const matchingClients = await Client.find(
+        { fullName: { $regex: filters.clientName, $options: 'i' } },
+        { _id: 1 }
+      ).lean();
+      const clientIds = matchingClients.map((c: any) => c._id);
+      query.client = { $in: clientIds };
     }
 
-    const shipments = await findQuery
+    const shipments = await Shipment.find(query)
+      .populate('order')
+      .populate('client')
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
 
     const total = await Shipment.countDocuments(query);
-    
+
     return { shipments, total };
   }
 
@@ -320,8 +376,10 @@ export class ShipmentService {
     const total = await Shipment.countDocuments(query);
 
     // Calcular deuda total y conteo de pagos pendientes (sin filtros de fecha, solo por cliente)
+    // IMPORTANTE: en aggregate() Mongoose NO convierte strings a ObjectId automáticamente,
+    // por lo que hay que hacerlo manualmente.
     const analytics = await Shipment.aggregate([
-      { $match: { client: clientId as any, paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
+      { $match: { client: new mongoose.Types.ObjectId(clientId), paymentStatus: { $in: ['UNPAID', 'INCOMPLETE'] } } },
       {
         $group: {
           _id: null,

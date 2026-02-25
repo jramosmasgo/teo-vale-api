@@ -7,25 +7,25 @@ import { Shipment } from '../models/Shipment';
 const COL_HEADER_FILL: ExcelJS.Fill = {
   type: 'pattern',
   pattern: 'solid',
-  fgColor: { argb: 'FF1E3A5F' },     // dark navy
+  fgColor: { argb: 'FF1E3A5F' },
 };
 
 const SUMMARY_FILL: ExcelJS.Fill = {
   type: 'pattern',
   pattern: 'solid',
-  fgColor: { argb: 'FFE8F5E9' },     // soft green
+  fgColor: { argb: 'FFE8F5E9' },
 };
 
 const DANGER_FILL: ExcelJS.Fill = {
   type: 'pattern',
   pattern: 'solid',
-  fgColor: { argb: 'FFFCE4EC' },     // soft red
+  fgColor: { argb: 'FFFCE4EC' },
 };
 
 const WARNING_FILL: ExcelJS.Fill = {
   type: 'pattern',
   pattern: 'solid',
-  fgColor: { argb: 'FFFFF3E0' },     // soft yellow
+  fgColor: { argb: 'FFFFF3E0' },
 };
 
 function applyHeaderStyle(row: ExcelJS.Row) {
@@ -51,9 +51,7 @@ function formatDate(date: Date | string | undefined): string {
 export class ExcelService {
 
   /**
-   * Reporte de Pagos por fecha
-   * Columnas: N°, Cliente, Monto, Fecha, Hora, Registrado por
-   * Resumen al final: total cobrado
+   * Reporte de Pagos — resumen con fórmulas Excel (SUM, COUNTA)
    */
   async generatePaymentsReport(filters: {
     startDate?: string;
@@ -61,7 +59,6 @@ export class ExcelService {
     paymentDate?: string;
   }): Promise<ExcelJS.Buffer> {
 
-    // ── Build query ──────────────────────────────────────────────────────────
     const query: any = {};
 
     if (filters.paymentDate) {
@@ -87,7 +84,6 @@ export class ExcelService {
       .populate('registeredBy', 'fullName')
       .sort({ paymentDate: 1 });
 
-    // ── Workbook ──────────────────────────────────────────────────────────────
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Teo Vale Sistema';
     wb.created = new Date();
@@ -97,7 +93,7 @@ export class ExcelService {
       pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true },
     });
 
-    // ── Title block ───────────────────────────────────────────────────────────
+    // Title block
     ws.mergeCells('A1:F1');
     const titleCell = ws.getCell('A1');
     titleCell.value = 'REPORTE DE PAGOS';
@@ -123,7 +119,6 @@ export class ExcelService {
     ws.getCell('A3').alignment = { horizontal: 'right' };
     ws.getRow(3).height = 18;
 
-    // ── Header row ────────────────────────────────────────────────────────────
     ws.columns = [
       { key: 'num',          width: 7  },
       { key: 'client',       width: 30 },
@@ -137,75 +132,71 @@ export class ExcelService {
     headerRow.values = ['N°', 'Cliente', 'Monto (S/)', 'Fecha de Pago', 'Hora', 'Registrado por'];
     applyHeaderStyle(headerRow);
 
-    // Spacer before data
+    // Row 5 = spacer; data starts at row 6
     ws.getRow(5).height = 4;
-
-    // ── Data rows ─────────────────────────────────────────────────────────────
-    let totalAmount = 0;
+    const DATA_START = 6;
 
     payments.forEach((p, idx) => {
-      const client = (p.client as any)?.fullName ?? '-';
-      const registeredBy = (p.registeredBy as any)?.fullName ?? '-';
-      const amount = p.amountPaid ?? 0;
-      totalAmount += amount;
-
       const row = ws.addRow({
         num: idx + 1,
-        client,
-        amount,
+        client: (p.client as any)?.fullName ?? '-',
+        amount: p.amountPaid ?? 0,
         date: formatDate(p.paymentDate?.toString()),
         time: p.paymentTime ?? '-',
-        registeredBy,
+        registeredBy: (p.registeredBy as any)?.fullName ?? '-',
       });
 
-      // Alternate row background
       if (idx % 2 === 1) {
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } };
         });
       }
 
-      // Amount cell formatting
       const amountCell = row.getCell('amount');
       amountCell.numFmt = '"S/ "#,##0.00';
       amountCell.font = { bold: true, color: { argb: 'FF1B5E20' } };
       amountCell.alignment = { horizontal: 'right' };
-
       row.getCell('num').alignment = { horizontal: 'center' };
       row.getCell('date').alignment = { horizontal: 'center' };
       row.getCell('time').alignment = { horizontal: 'center' };
       row.height = 22;
     });
 
-    // ── Summary rows ──────────────────────────────────────────────────────────
+    // ── Summary with formulas ─────────────────────────────────────────────────
+    const DATA_END = DATA_START + payments.length - 1;
+    const hasData = payments.length > 0;
+
     ws.addRow([]); // spacer
 
-    const totalRow = ws.addRow(['', 'TOTAL', totalAmount, '', '', '']);
-    totalRow.getCell('num').value = '';
-    const labelCell = totalRow.getCell('client');
-    labelCell.value = 'TOTAL COBRADO';
-    labelCell.font = { bold: true, size: 12 };
-    labelCell.alignment = { horizontal: 'right' };
-
+    // TOTAL COBRADO → SUM(C6:Cn)
+    const totalRow = ws.addRow([]);
+    totalRow.getCell('client').value = 'TOTAL COBRADO';
+    totalRow.getCell('client').font = { bold: true, size: 12 };
+    totalRow.getCell('client').alignment = { horizontal: 'right' };
     const totalCell = totalRow.getCell('amount');
+    totalCell.value = hasData ? { formula: `SUM(C${DATA_START}:C${DATA_END})` } : 0;
     totalCell.numFmt = '"S/ "#,##0.00';
     totalCell.font = { bold: true, size: 13, color: { argb: 'FF1B5E20' } };
     totalCell.alignment = { horizontal: 'right' };
-
     totalRow.eachCell((cell) => { cell.fill = SUMMARY_FILL; });
     totalRow.height = 28;
 
-    const countRow = ws.addRow(['', `Total de pagos: ${payments.length}`, '', '', '', '']);
-    countRow.getCell('client').font = { italic: true, color: { argb: 'FF546E7A' } };
+    // TOTAL DE PAGOS → COUNTA(B6:Bn)
+    const countRow = ws.addRow([]);
+    countRow.getCell('client').value = 'TOTAL DE PAGOS';
+    countRow.getCell('client').font = { bold: true, color: { argb: 'FF546E7A' } };
     countRow.getCell('client').alignment = { horizontal: 'right' };
+    const countCell = countRow.getCell('amount');
+    countCell.value = hasData ? { formula: `COUNTA(B${DATA_START}:B${DATA_END})` } : 0;
+    countCell.font = { bold: true, color: { argb: 'FF546E7A' } };
+    countCell.alignment = { horizontal: 'right' };
+    countRow.height = 22;
 
     return await wb.xlsx.writeBuffer() as ExcelJS.Buffer;
   }
 
   /**
-   * Reporte de Entregas (Shipments)
-   * Columnas: N°, Cliente, Fecha Entrega, Monto, Monto Pagado, Estado Pago, Estado Entrega
-   * Resumen al final: total monto, total cobrado, total pendiente, conteos por estado
+   * Reporte de Entregas — resumen con fórmulas Excel (SUM, COUNTA, COUNTIF)
    */
   async generateDeliveriesReport(filters: {
     deliveryDate?: string;
@@ -215,11 +206,9 @@ export class ExcelService {
     status?: string;
   }): Promise<ExcelJS.Buffer> {
 
-    // ── Build query ──────────────────────────────────────────────────────────
     const query: any = {};
-
     if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
-    if (filters.status) query.status = filters.status;
+    if (filters.status)        query.status = filters.status;
 
     if (filters.deliveryDate) {
       const [y, m, d] = filters.deliveryDate.split('-').map(Number);
@@ -243,7 +232,6 @@ export class ExcelService {
       .populate('client', 'fullName')
       .sort({ deliveryDate: 1, 'client.fullName': 1 });
 
-    // ── Workbook ──────────────────────────────────────────────────────────────
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Teo Vale Sistema';
     wb.created = new Date();
@@ -253,7 +241,7 @@ export class ExcelService {
       pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true },
     });
 
-    // ── Title block ───────────────────────────────────────────────────────────
+    // Title block
     ws.mergeCells('A1:G1');
     const titleCell = ws.getCell('A1');
     titleCell.value = 'REPORTE DE ENTREGAS';
@@ -263,16 +251,17 @@ export class ExcelService {
 
     ws.mergeCells('A2:G2');
     const subtitleCell = ws.getCell('A2');
-    const parts: string[] = [];
-    if (filters.deliveryDate) parts.push(`Fecha: ${formatDate(filters.deliveryDate)}`);
+    const dateParts: string[] = [];
+    if (filters.deliveryDate)
+      dateParts.push(`Fecha: ${formatDate(filters.deliveryDate)}`);
     else if (filters.startDate || filters.endDate)
-      parts.push(`Período: ${filters.startDate ? formatDate(filters.startDate) : '—'} al ${filters.endDate ? formatDate(filters.endDate) : '—'}`);
+      dateParts.push(`Período: ${filters.startDate ? formatDate(filters.startDate) : '—'} al ${filters.endDate ? formatDate(filters.endDate) : '—'}`);
     if (filters.paymentStatus) {
       const labels: Record<string, string> = { COMPLETED: 'Pagado', INCOMPLETE: 'Parcial', UNPAID: 'Sin pagar' };
-      parts.push(`Estado de pago: ${labels[filters.paymentStatus] ?? filters.paymentStatus}`);
+      dateParts.push(`Estado de pago: ${labels[filters.paymentStatus] ?? filters.paymentStatus}`);
     }
-    if (filters.status) parts.push(`Estado entrega: ${filters.status}`);
-    subtitleCell.value = parts.length ? parts.join(' • ') : 'Todos los registros';
+    if (filters.status) dateParts.push(`Estado entrega: ${filters.status}`);
+    subtitleCell.value = dateParts.length ? dateParts.join(' • ') : 'Todos los registros';
     subtitleCell.font = { size: 11, color: { argb: 'FF546E7A' } };
     subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(2).height = 24;
@@ -283,7 +272,6 @@ export class ExcelService {
     ws.getCell('A3').alignment = { horizontal: 'right' };
     ws.getRow(3).height = 18;
 
-    // ── Header row ────────────────────────────────────────────────────────────
     ws.columns = [
       { key: 'num',           width: 7  },
       { key: 'client',        width: 30 },
@@ -298,16 +286,9 @@ export class ExcelService {
     headerRow.values = ['N°', 'Cliente', 'Fecha Entrega', 'Monto (S/)', 'Monto Pagado (S/)', 'Estado Pago', 'Estado Entrega'];
     applyHeaderStyle(headerRow);
 
-    ws.getRow(5).height = 4; // spacer
+    ws.getRow(5).height = 4; // spacer — data row 6 onwards
 
-    // ── Data rows ─────────────────────────────────────────────────────────────
-    let totalAmount = 0;
-    let totalPaid = 0;
-    let countCompleted = 0;
-    let countIncomplete = 0;
-    let countUnpaid = 0;
-    let countDelivered = 0;
-    let countCancelled = 0;
+    const DATA_START = 6;
 
     const paymentStatusLabel = (s: string) =>
       s === 'COMPLETED' ? 'Pagado' : s === 'INCOMPLETE' ? 'Pago Parcial' : 'Sin Pagar';
@@ -316,26 +297,15 @@ export class ExcelService {
       s === 'DELIVERED' ? 'Entregado' : s === 'CANCELLED' ? 'Cancelado' : s;
 
     shipments.forEach((sh, idx) => {
-      const client = (sh.client as any)?.fullName ?? '-';
-      const amount = sh.amount ?? 0;
-      const amountPaid = sh.amountPaid ?? 0;
       const pStatus = sh.paymentStatus ?? 'UNPAID';
       const dStatus = sh.status ?? '-';
 
-      totalAmount += amount;
-      totalPaid += amountPaid;
-      if (pStatus === 'COMPLETED') countCompleted++;
-      else if (pStatus === 'INCOMPLETE') countIncomplete++;
-      else countUnpaid++;
-      if (dStatus === 'DELIVERED') countDelivered++;
-      else if (dStatus === 'CANCELLED') countCancelled++;
-
       const row = ws.addRow({
         num: idx + 1,
-        client,
+        client: (sh.client as any)?.fullName ?? '-',
         deliveryDate: formatDate(sh.deliveryDate?.toString()),
-        amount,
-        amountPaid,
+        amount: sh.amount ?? 0,
+        amountPaid: sh.amountPaid ?? 0,
         paymentStatus: paymentStatusLabel(pStatus),
         status: deliveryStatusLabel(dStatus),
       });
@@ -346,7 +316,6 @@ export class ExcelService {
         });
       }
 
-      // Amount columns
       const amountCell = row.getCell('amount');
       amountCell.numFmt = '"S/ "#,##0.00';
       amountCell.font = { bold: true };
@@ -357,7 +326,6 @@ export class ExcelService {
       paidCell.font = { color: { argb: 'FF1B5E20' } };
       paidCell.alignment = { horizontal: 'right' };
 
-      // Payment status cell coloring
       const psCell = row.getCell('paymentStatus');
       psCell.alignment = { horizontal: 'center' };
       if (pStatus === 'COMPLETED') {
@@ -371,7 +339,6 @@ export class ExcelService {
         psCell.font = { bold: true, color: { argb: 'FFC62828' } };
       }
 
-      // Delivery status coloring
       const dsCell = row.getCell('status');
       dsCell.alignment = { horizontal: 'center' };
       if (dStatus === 'DELIVERED') {
@@ -386,10 +353,14 @@ export class ExcelService {
       row.height = 22;
     });
 
-    // ── Summary section ───────────────────────────────────────────────────────
-    ws.addRow([]);
+    // ── Summary with Excel formulas ───────────────────────────────────────────
+    // Column map: A=num B=client C=deliveryDate D=amount E=amountPaid F=paymentStatus G=status
+    const DATA_END = DATA_START + shipments.length - 1;
+    const hasData = shipments.length > 0;
 
-    // Section title
+    ws.addRow([]); // spacer
+
+    // Section header
     const sumTitleRow = ws.addRow(['', 'RESUMEN DEL REPORTE']);
     ws.mergeCells(`B${sumTitleRow.number}:G${sumTitleRow.number}`);
     sumTitleRow.getCell('client').font = { bold: true, size: 13, color: { argb: 'FF1E3A5F' } };
@@ -399,40 +370,109 @@ export class ExcelService {
     });
     sumTitleRow.height = 26;
 
-    const totalDebt = totalAmount - totalPaid;
-
-    const addSummaryRow = (label: string, value: string | number, isAmount = false, fill?: ExcelJS.Fill) => {
-      const r = ws.addRow(['', label, isAmount ? value : '', '', isAmount ? '' : value, '', '']);
+    /** Generic helper to add a formula summary row */
+    const addFormulaRow = (
+      label: string,
+      valueKey: string,
+      formula: string,
+      isAmount: boolean,
+      fill?: ExcelJS.Fill,
+    ) => {
+      const r = ws.addRow([]);
+      r.getCell('client').value = label;
       r.getCell('client').font = { bold: true, color: { argb: 'FF37474F' } };
       r.getCell('client').alignment = { horizontal: 'right' };
+
+      const c = r.getCell(valueKey);
+      c.value = hasData ? { formula } : 0;
       if (isAmount) {
-        const c = r.getCell('amount');
-        c.value = value;
         c.numFmt = '"S/ "#,##0.00';
-        c.font = { bold: true };
-        c.alignment = { horizontal: 'right' };
-      } else {
-        const c = r.getCell('amountPaid');
-        c.value = value;
-        c.alignment = { horizontal: 'center' };
-        c.font = { bold: true };
       }
+      c.font = { bold: true };
+      c.alignment = { horizontal: isAmount ? 'right' : 'center' };
+
       if (fill) r.eachCell((cell) => { cell.fill = fill!; });
       r.height = 22;
+      return r;
     };
 
-    addSummaryRow('Total entregas:', shipments.length);
-    addSummaryRow('Total monto facturado:', totalAmount, true, SUMMARY_FILL);
-    addSummaryRow('Total cobrado:', totalPaid, true, SUMMARY_FILL);
-    addSummaryRow('Total pendiente (deuda):', totalDebt, true, totalDebt > 0 ? DANGER_FILL : SUMMARY_FILL);
+    // Total entregas → COUNTA(B6:Bn)
+    addFormulaRow(
+      'Total entregas:',
+      'amountPaid',
+      `COUNTA(B${DATA_START}:B${DATA_END})`,
+      false,
+    );
 
-    ws.addRow([]);
+    // Total monto facturado → SUM(D6:Dn)
+    const totalFactRow = addFormulaRow(
+      'Total monto facturado:',
+      'amount',
+      `SUM(D${DATA_START}:D${DATA_END})`,
+      true,
+      SUMMARY_FILL,
+    );
 
-    addSummaryRow('✅ Pagado completo:', countCompleted);
-    addSummaryRow('⚠️  Pago parcial:', countIncomplete);
-    addSummaryRow('❌ Sin pagar:', countUnpaid);
-    addSummaryRow('📦 Entregas realizadas:', countDelivered);
-    addSummaryRow('🚫 Entregas canceladas:', countCancelled);
+    // Total cobrado → SUM(E6:En)
+    const totalCobRow = addFormulaRow(
+      'Total cobrado:',
+      'amount',
+      `SUM(E${DATA_START}:E${DATA_END})`,
+      true,
+      SUMMARY_FILL,
+    );
+
+    // Total pendiente → factRow.amount - cobRow.amount  (cross-row formula)
+    const pendRow = ws.addRow([]);
+    pendRow.getCell('client').value = 'Total pendiente (deuda):';
+    pendRow.getCell('client').font = { bold: true, color: { argb: 'FF37474F' } };
+    pendRow.getCell('client').alignment = { horizontal: 'right' };
+    const pendCell = pendRow.getCell('amount');
+    pendCell.value = hasData
+      ? { formula: `D${totalFactRow.number}-D${totalCobRow.number}` }
+      : 0;
+    pendCell.numFmt = '"S/ "#,##0.00';
+    pendCell.font = { bold: true };
+    pendCell.alignment = { horizontal: 'right' };
+    pendRow.eachCell((cell) => { cell.fill = DANGER_FILL; });
+    pendRow.height = 22;
+
+    ws.addRow([]); // spacer
+
+    // Estado de pago counts → COUNTIF(F6:Fn, "texto")
+    addFormulaRow(
+      '✅ Pagado completo:',
+      'amountPaid',
+      `COUNTIF(F${DATA_START}:F${DATA_END},"Pagado")`,
+      false,
+    );
+    addFormulaRow(
+      '⚠️  Pago parcial:',
+      'amountPaid',
+      `COUNTIF(F${DATA_START}:F${DATA_END},"Pago Parcial")`,
+      false,
+      WARNING_FILL,
+    );
+    addFormulaRow(
+      '❌ Sin pagar:',
+      'amountPaid',
+      `COUNTIF(F${DATA_START}:F${DATA_END},"Sin Pagar")`,
+      false,
+      DANGER_FILL,
+    );
+    addFormulaRow(
+      '📦 Entregas realizadas:',
+      'amountPaid',
+      `COUNTIF(G${DATA_START}:G${DATA_END},"Entregado")`,
+      false,
+    );
+    addFormulaRow(
+      '🚫 Entregas canceladas:',
+      'amountPaid',
+      `COUNTIF(G${DATA_START}:G${DATA_END},"Cancelado")`,
+      false,
+      DANGER_FILL,
+    );
 
     return await wb.xlsx.writeBuffer() as ExcelJS.Buffer;
   }

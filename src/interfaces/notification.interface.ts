@@ -14,6 +14,10 @@ export interface INotification extends Document {
   title: string;
   content: string;
   seenBy: Types.ObjectId[];    // Array de usuarios que han visto la notificación
+  action?: {
+    entityId?: string;         // ID del recurso relacionado
+    entityType?: string;       // Ej: "order", "delivery", "client"
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }

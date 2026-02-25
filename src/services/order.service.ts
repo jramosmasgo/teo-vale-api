@@ -3,12 +3,23 @@ import { IOrder } from "../interfaces";
 import { Types } from "mongoose";
 
 export class OrderService {
+  /** Calcula amount como la suma de los precios de los items */
+  private calcAmount(orderData: Partial<IOrder>): number {
+    if (!orderData.items || orderData.items.length === 0) return 0;
+    return orderData.items.reduce((sum, item) => sum + (item.price ?? 0), 0);
+  }
+
   async createOrder(orderData: IOrder): Promise<IOrder> {
+    orderData.amount = this.calcAmount(orderData);
     const order = new Order(orderData);
     return await order.save();
   }
 
   async updateOrder(id: string, orderData: Partial<IOrder>): Promise<IOrder | null> {
+    // Si vienen items en el update, recalcular amount
+    if (orderData.items !== undefined) {
+      orderData.amount = this.calcAmount(orderData);
+    }
     const order = await Order.findByIdAndUpdate(id, orderData, { new: true });
     return order;
   }

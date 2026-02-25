@@ -1,24 +1,37 @@
 import { Request, Response, NextFunction } from 'express';
 import { ClientService } from '../services/client.service';
 import { NotificationService } from '../services/notification.service';
+import { User } from '../models/User';
 
 const clientService = new ClientService();
 const notificationService = new NotificationService();
+
+/** Devuelve el primer nombre de un fullName o un fallback */
+const firstName = (fullName?: string, fallback = 'Usuario') =>
+  fullName?.split(' ')[0] || fallback;
 
 export class ClientController {
   async createClient(req: Request, res: Response, next: NextFunction) {
     try {
       const client = await clientService.createClient(req.body);
 
-      // Notificación: nuevo cliente registrado
+      // Notificación: nuevo cliente registrado (se corre en background)
       const userId = (req as any).user?.id;
       if (userId) {
-        notificationService.createNotification({
-          createdBy: userId,
-          type: 'CLIENT_CREATED',
-          title: 'Nuevo cliente registrado',
-          content: `Se registró el cliente "${(client as any).fullName || client._id}".`,
-        }).catch(console.error);
+        (async () => {
+          try {
+            const user = await User.findById(userId).select('fullName').lean();
+            const uName = firstName((user as any)?.fullName);
+            const cName = firstName((client as any)?.fullName, 'cliente');
+            await notificationService.createNotification({
+              createdBy: userId,
+              type: 'CLIENT_CREATED',
+              title: 'Nuevo cliente registrado',
+              content: `El usuario ${uName} agregó un nuevo cliente: ${cName}.`,
+              action: { entityId: String(client._id), entityType: 'client' },
+            });
+          } catch (e) { console.error(e); }
+        })();
       }
 
       res.status(201).json(client);

@@ -25,9 +25,12 @@ const OrderSchema = new Schema<IOrder>(
       required: true,
       min: 0 
     },
-    description: { 
-      type: String 
-    },
+    items: [
+      {
+        name: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 }, // precio en soles
+      }
+    ],
     status: { 
       type: Boolean,
       default: true

@@ -6,6 +6,10 @@ interface CreateNotificationPayload {
   type: NotificationType;
   title: string;
   content: string;
+  action?: {
+    entityId?: string;
+    entityType?: string;
+  };
 }
 
 export class NotificationService {
@@ -19,6 +23,7 @@ export class NotificationService {
       title: payload.title,
       content: payload.content,
       seenBy: [],
+      ...(payload.action && { action: payload.action }),
     });
     return notification.save();
   }

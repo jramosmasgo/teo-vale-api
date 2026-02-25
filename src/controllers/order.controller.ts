@@ -1,24 +1,41 @@
 import { Request, Response, NextFunction } from 'express';
 import { OrderService } from '../services/order.service';
 import { NotificationService } from '../services/notification.service';
+import { User } from '../models/User';
+import { Order } from '../models/Order';
 
 const orderService = new OrderService();
 const notificationService = new NotificationService();
+
+/** Devuelve el primer nombre de un fullName o un fallback */
+const firstName = (fullName?: string, fallback = 'Usuario') =>
+  fullName?.split(' ')[0] || fallback;
 
 export class OrderController {
   async createOrder(req: Request, res: Response, next: NextFunction) {
     try {
       const order = await orderService.createOrder(req.body);
-      
-      // Notificación: nuevo pedido creado
+
+      // Notificación: nuevo pedido creado (se corre en background)
       const userId = (req as any).user?.id;
       if (userId) {
-        notificationService.createNotification({
-          createdBy: userId,
-          type: 'ORDER_CREATED',
-          title: 'Nuevo pedido creado',
-          content: `Se creó un nuevo pedido (${(order as any).orderCode || order._id}).`,
-        }).catch(console.error);
+        (async () => {
+          try {
+            const [user, populated] = await Promise.all([
+              User.findById(userId).select('fullName').lean(),
+              Order.findById(order._id).populate<{ client: { fullName?: string } }>('client', 'fullName').lean(),
+            ]);
+            const uName = firstName((user as any)?.fullName);
+            const cName = firstName((populated?.client as any)?.fullName, 'cliente');
+            await notificationService.createNotification({
+              createdBy: userId,
+              type: 'ORDER_CREATED',
+              title: 'Nuevo pedido creado',
+              content: `El usuario ${uName} creó un nuevo pedido del cliente ${cName}.`,
+              action: { entityId: String(order._id), entityType: 'order' },
+            });
+          } catch (e) { console.error(e); }
+        })();
       }
 
       res.status(201).json(order);
@@ -31,21 +48,34 @@ export class OrderController {
     try {
       const { id } = req.params;
       const order = await orderService.updateOrder(id as string, req.body);
-      
+
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
       }
 
-      // Notificación: pedido modificado/cancelado
+      // Notificación: pedido modificado/cancelado (se corre en background)
       const userId = (req as any).user?.id;
       if (userId) {
         const isCancelled = req.body.status === false || req.body.status === 'CANCELLED';
-        notificationService.createNotification({
-          createdBy: userId,
-          type: isCancelled ? 'ORDER_CANCELLED' : 'ORDER_UPDATED',
-          title: isCancelled ? 'Pedido cancelado' : 'Pedido modificado',
-          content: `El pedido (${(order as any).orderCode || id}) fue ${isCancelled ? 'cancelado' : 'modificado'}.`,
-        }).catch(console.error);
+        (async () => {
+          try {
+            const [user, populated] = await Promise.all([
+              User.findById(userId).select('fullName').lean(),
+              Order.findById(id).populate<{ client: { fullName?: string } }>('client', 'fullName').lean(),
+            ]);
+            const uName = firstName((user as any)?.fullName);
+            const cName = firstName((populated?.client as any)?.fullName, 'cliente');
+            await notificationService.createNotification({
+              createdBy: userId,
+              type: isCancelled ? 'ORDER_CANCELLED' : 'ORDER_UPDATED',
+              title: isCancelled ? 'Pedido cancelado' : 'Pedido modificado',
+              content: isCancelled
+                ? `El usuario ${uName} canceló un pedido del cliente ${cName}.`
+                : `El usuario ${uName} modificó un pedido del cliente ${cName}.`,
+              action: { entityId: String(id), entityType: 'order' },
+            });
+          } catch (e) { console.error(e); }
+        })();
       }
 
       res.json(order);

@@ -7,6 +7,7 @@ const shipmentController = new ShipmentController();
 
 router.post('/', checkJwt, shipmentController.createShipment);
 router.post('/generate-today', shipmentController.generateTodayShipments);
+router.post('/generate-for-order/:orderId', checkJwt, shipmentController.generateShipmentForOrder);
 router.get('/generation-history', checkJwt, shipmentController.getGenerationHistory);
 router.get('/generation-today', checkJwt, shipmentController.getTodayGeneration);
 router.get('/client/:clientId', checkJwt, shipmentController.getShipmentsByClient);
