@@ -4,9 +4,25 @@
     {
       "src": "api/index.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/cron/generate-shipments.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/cron/cleanup-notifications.ts",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/cron/generate-shipments",
+      "destination": "/api/cron/generate-shipments"
+    },
+    {
+      "source": "/api/cron/cleanup-notifications",
+      "destination": "/api/cron/cleanup-notifications"
+    },
     {
       "source": "/(.*)",
       "destination": "/api/index.ts"
@@ -29,6 +45,16 @@
           "value": "Content-Type, Authorization"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/generate-shipments",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-notifications",
+      "schedule": "0 7 * * 1"
     }
   ]
 }
